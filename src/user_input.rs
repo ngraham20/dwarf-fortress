@@ -1,6 +1,5 @@
 use crate::object::player_move_or_attack;
 use crate::constants::PLAYER;
-use crate::object::move_by;
 use crate::object::Object;
 use crate::map::Game;
 use crate::screen::Tcod;
