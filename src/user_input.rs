@@ -1,33 +1,60 @@
-use crate::objects::Object;
+use crate::object::player_move_or_attack;
+use crate::constants::PLAYER;
+use crate::object::move_by;
+use crate::object::Object;
 use crate::map::Game;
 use crate::screen::Tcod;
+use PlayerAction::*;
 
-pub fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut Object) -> bool {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PlayerAction {
+    TookTurn,
+    DidntTakeTurn,
+    Exit,
+}
+
+pub fn handle_keys(tcod: &mut Tcod, game: &Game, objects: &mut Vec<Object>) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
     let key = tcod.root.wait_for_keypress(true);
-    match key {
+    let player_alive = objects[PLAYER].alive;
+    match (key, key.text(), player_alive) {
+    (
         Key {
             code: Enter,
             alt: true,
             ..
-        } => {
+        },
+        _,
+        _,
+     ) => {
             let fullscreen = tcod.root.is_fullscreen();
             tcod.root.set_fullscreen(!fullscreen);
+            DidntTakeTurn
         }
 
-        Key { code: Escape, .. } => return true,
+        (Key { code: Escape, .. }, _, _) => Exit,
 
         // match for the keys we care about
-        Key { code: Up, .. } => player.move_by(0, -1, game),
-        Key { code: Down, .. } => player.move_by(0, 1, game),
-        Key { code: Left, .. } => player.move_by(-1, 0, game),
-        Key { code: Right, .. } => player.move_by(1, 0, game),
+        (Key { code: Up, .. }, _, true) => {
+            player_move_or_attack(0, -1, game, objects);
+            TookTurn
+        }
+        (Key { code: Down, .. }, _, true) => {
+            player_move_or_attack(0, 1, game, objects);
+            TookTurn
+        }
+        (Key { code: Left, .. }, _, true) => {
+            player_move_or_attack(-1, 0, game, objects);
+            TookTurn
+        }
+        (Key { code: Right, .. }, _, true) => {
+            player_move_or_attack(1, 0, game, objects);
+            TookTurn
+        }
 
         // then the rest of them evaluate to nothing
-        _ => {}
+        _ => DidntTakeTurn
     }
-
-    false
 }
