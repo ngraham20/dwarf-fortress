@@ -84,7 +84,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "roguelike_tutorial"
+name = "roguelike"
 version = "0.1.0"
 dependencies = [
  "rand 0.3.23",

@@ -1,5 +1,5 @@
 use crate::screen::Tcod;
-use crate::map::Game;
+use crate::game::Game;
 use crate::constants::PLAYER;
 use crate::map::Map;
 use crate::map::is_blocked;
@@ -10,37 +10,7 @@ use tcod::colors::*;
 use rand::Rng;
 use std::cmp;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Fighter {
-    pub max_hp: i32,
-    pub hp: i32,
-    pub defense: i32,
-    pub power: i32,
-    pub on_death: DeathCallback,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DeathCallback {
-    Player,
-    Monster,
-}
-
-impl DeathCallback {
-    fn callback(self, object: &mut Object) {
-        use DeathCallback::*;
-        let callback: fn(&mut Object) = match self {
-            Player => player_death,
-            Monster => monster_death,
-        };
-        callback(object);
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Ai {
-    Basic,
-}
-
+// ----------------------- PUBLIC STRUCTS -----------------------
 #[derive(Debug)]
 pub struct Object {
     pub x: i32,
@@ -89,7 +59,7 @@ impl Object {
         ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
     }
 
-    pub fn take_damage(&mut self, damage: i32) {
+    pub fn take_damage(&mut self, damage: i32, game: &mut Game) {
         if let Some(fighter) = self.fighter.as_mut() {
             if damage > 0 {
                 fighter.hp -= damage;
@@ -99,61 +69,68 @@ impl Object {
         if let Some(fighter) = self.fighter {
             if fighter.hp <= 0 {
                 self.alive = false;
-                fighter.on_death.callback(self);
+                fighter.on_death.callback(self, game);
             }
         }
     }
 
-    pub fn attack(&mut self, target: &mut Object) {
+    pub fn attack(&mut self, target: &mut Object, game: &mut Game) {
         let damage = self.fighter.map_or(0, |f| f.power) - target.fighter.map_or(0, |f| f.defense);
         if damage > 0 {
-            println!(
-                "{} attacks {} for {} hit points.",
-                self.name, target.name, damage
+            game.messages.add(
+                format!(
+                    "{} attacks {} for {} hit points.",
+                    self.name, target.name, damage
+                ),
+                WHITE,
             );
-            target.take_damage(damage);
+            target.take_damage(damage, game);
         } else {
-            println!(
-                "{} attacks {} but it has no effect!",
-                self.name, target.name
+            game.messages.add(
+                format!(
+                    "{} attacks {} but it has no effect!",
+                    self.name, target.name
+                ),
+                WHITE,
             );
         }
     }
 }
 
-pub fn player_death(player: &mut Object) {
-    println!("You died!");
-
-    player.char = '%';
-    player.color = DARK_RED;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Fighter {
+    pub max_hp: i32,
+    pub hp: i32,
+    pub defense: i32,
+    pub power: i32,
+    on_death: DeathCallback,
 }
 
-pub fn monster_death(monster: &mut Object) {
-    println!("{} is dead!", monster.name);
-    monster.char = '%';
-    monster.color = DARK_RED;
-    monster.blocks = false;
-    monster.fighter = None;
-    monster.ai = None;
-    monster.name = format!("remains of {}", monster.name);
+// ----------------------- PRIVATE STRUCTS -----------------------
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DeathCallback {
+    Player,
+    Monster,
 }
 
-pub fn move_by(id: usize, dx: i32, dy: i32, map: &Map, objects: &mut [Object]) {
-    let (x, y) = objects[id].pos();
-    if !is_blocked(x + dx, y + dy, map, objects) {
-        objects[id].set_pos(x + dx, y + dy);
+impl DeathCallback {
+    fn callback(self, object: &mut Object, game: &mut Game) {
+        use DeathCallback::*;
+        let callback = match self {
+            Player => player_death,
+            Monster => monster_death,
+        };
+        callback(object, game);
     }
 }
 
-pub fn move_towards(id: usize, target_x: i32, target_y: i32, map: &Map, objects: &mut [Object]) {
-    let dx = target_x - objects[id].x;
-    let dy = target_y - objects[id].y;
-    let distance = ((dx.pow(2) + dy.pow(2)) as f32).sqrt();
-
-    let dx = (dx as f32 / distance).round() as i32;
-    let dy = (dy as f32 / distance).round() as i32;
-    move_by(id, dx, dy, map, objects);
+#[derive(Clone, Debug, PartialEq)]
+enum Ai {
+    Basic,
 }
+
+// ----------------------- PUBLIC FUNCTIONS -----------------------
 
 pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
 
@@ -205,7 +182,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
     }
 }
 
-pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &Game, objects: &mut [Object]) {
+pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &mut [Object]) {
     let (monster_x, monster_y) = objects[monster_id].pos();
     if tcod.fov.is_in_fov(monster_x, monster_y) {
         if objects[monster_id].distance_to(&objects[PLAYER]) >= 2.0 {
@@ -213,23 +190,12 @@ pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &Game, objects: &mut [
             move_towards(monster_id, player_x, player_y, &game.map, objects);
         } else if objects[PLAYER].fighter.map_or(false, |f| f.hp > 0) {
             let (monster, player) = mut_two(monster_id, PLAYER, objects);
-            monster.attack(player);
+            monster.attack(player, game);
         }
     }
 }
 
-fn mut_two<T>(first_index: usize, second_index: usize, items: &mut [T]) -> (&mut T, &mut T) {
-    assert!(first_index != second_index);
-    let split_at_index = cmp::max(first_index, second_index);
-    let (first_slice, second_slice) = items.split_at_mut(split_at_index);
-    if first_index < second_index {
-        (&mut first_slice[first_index], &mut second_slice[0])
-    } else {
-        (&mut second_slice[0], &mut first_slice[second_index])
-    }
-}
-
-pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) {
+pub fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, objects: &mut [Object]) {
     let x = objects[PLAYER].x + dx;
     let y = objects[PLAYER].y + dy;
 
@@ -240,10 +206,57 @@ pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Objec
     match target_id {
         Some(target_id) => {
             let (player, target) = mut_two(PLAYER, target_id, objects);
-            player.attack(target);
+            player.attack(target, game);
         }
         None => {
             move_by(PLAYER, dx, dy, &game.map, objects);
         }
+    }
+}
+
+// ----------------------- PRIVATE FUNCTIONS -----------------------
+
+fn player_death(player: &mut Object, game: &mut Game) {
+    game.messages.add("You died!", RED);
+
+    player.char = '%';
+    player.color = DARK_RED;
+}
+
+fn monster_death(monster: &mut Object, game: &mut Game) {
+    game.messages.add(format!("{} is dead!", monster.name), ORANGE);
+    monster.char = '%';
+    monster.color = DARK_RED;
+    monster.blocks = false;
+    monster.fighter = None;
+    monster.ai = None;
+    monster.name = format!("remains of {}", monster.name);
+}
+
+fn move_by(id: usize, dx: i32, dy: i32, map: &Map, objects: &mut [Object]) {
+    let (x, y) = objects[id].pos();
+    if !is_blocked(x + dx, y + dy, map, objects) {
+        objects[id].set_pos(x + dx, y + dy);
+    }
+}
+
+fn move_towards(id: usize, target_x: i32, target_y: i32, map: &Map, objects: &mut [Object]) {
+    let dx = target_x - objects[id].x;
+    let dy = target_y - objects[id].y;
+    let distance = ((dx.pow(2) + dy.pow(2)) as f32).sqrt();
+
+    let dx = (dx as f32 / distance).round() as i32;
+    let dy = (dy as f32 / distance).round() as i32;
+    move_by(id, dx, dy, map, objects);
+}
+
+fn mut_two<T>(first_index: usize, second_index: usize, items: &mut [T]) -> (&mut T, &mut T) {
+    assert!(first_index != second_index);
+    let split_at_index = cmp::max(first_index, second_index);
+    let (first_slice, second_slice) = items.split_at_mut(split_at_index);
+    if first_index < second_index {
+        (&mut first_slice[first_index], &mut second_slice[0])
+    } else {
+        (&mut second_slice[0], &mut first_slice[second_index])
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "roguelike_tutorial"
+name = "roguelike"
 version = "0.1.0"
 authors = ["Nathaniel Graham <ngraham20@my.whitworth.edu>"]
 edition = "2018"
