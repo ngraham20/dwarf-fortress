@@ -1,5 +1,6 @@
 target
 .vscode
+.helix
 
 
 # Added by cargo
