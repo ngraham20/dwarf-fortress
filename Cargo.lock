@@ -1477,19 +1477,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ea92a5b6195c6ef2a0295ea818b312502c6fc94dde986c5553242e18fd4ce2"
 
 [[package]]
-name = "rltk"
-version = "0.8.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30587bc9361fc5600650d17ad6b9a91bb6a290f9d06a434dc48198d22ead7543"
-dependencies = [
- "bracket-lib",
-]
-
-[[package]]
 name = "rust-roguelike"
 version = "0.1.0"
 dependencies = [
- "rltk",
+ "bracket-lib",
  "specs",
  "specs-derive",
 ]
