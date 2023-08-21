@@ -36,15 +36,6 @@ struct Render {
 #[storage(HashMapStorage)]
 struct Player {}
 
-// impl<'a> System<'a> for Player {
-//     type SystemData = (ReadStorage<'a, Player>, WriteStorage<'a, Position>);
-
-//     fn run(&mut self, (player, mut pos): Self::SystemData) {
-//         for (_p, pos) in (&player, &mut pos).join() {
-//         }
-//     }
-// }
-
 fn try_move_player(dx: i32, dy: i32, ecs: &mut World) {
     use std::cmp::{min, max};
     let mut positions = ecs.write_storage::<Position>();
@@ -90,6 +81,12 @@ fn main() -> BError {
     gs.ecs.create_entity()
         .with(Position { x: 5, y: 5 })
         .with(Render { glyph: to_cp437('@'), fg: RGB::named(YELLOW), bg: RGB::named(BLACK)})
+        .with(Player {})
+        .build();
+
+    gs.ecs.create_entity()
+        .with(Position { x: 10, y: 10 })
+        .with(Render { glyph: to_cp437('@'), fg: RGB::named(RED), bg: RGB::named(BLACK)})
         .with(Player {})
         .build();
     main_loop(context, gs)
