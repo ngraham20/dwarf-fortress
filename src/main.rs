@@ -41,14 +41,17 @@ impl Map {
         ((pos / self.width) as i32, (pos % self.width) as i32)
     }
 
-    fn apply_room_to_map(&mut self, room : &Rect) {
-        for y in room.y1 +1 ..= room.y2 {
-            for x in room.x1 + 1 ..= room.x2 {
+    fn apply_room_to_map(&mut self, room: &Rect) {
+        for y in room.y1 + 1..=room.y2 {
+            for x in room.x1 + 1..=room.x2 {
                 let idx = self.xy_idx(x, y);
                 self.tiles[idx] = Tile::Floor;
             }
         }
-        let center = ((room.x1 + room.x2)/2, (room.y1 as i32+room.y2 as i32)/2);
+        let center = (
+            (room.x1 + room.x2) / 2,
+            (room.y1 as i32 + room.y2 as i32) / 2,
+        );
         self.player_spawns.push(center);
     }
 
@@ -57,10 +60,15 @@ impl Map {
             width: 80,
             height: 50,
             depth: 1,
-            tiles: vec![Tile::Stone; 80*50],
+            tiles: vec![Tile::Stone; 80 * 50],
             player_spawns: Vec::new(),
         };
-        let room = Rect { x1: 30, x2: 50, y1: 15, y2: 35};
+        let room = Rect {
+            x1: 30,
+            x2: 50,
+            y1: 15,
+            y2: 35,
+        };
         map.apply_room_to_map(&room);
         map
     }
@@ -71,10 +79,22 @@ impl Map {
             let (y, x) = map.idx_xy(pos);
             match tile {
                 Tile::Floor => {
-                    ctx.set(x, y, RGB::from_f32(0.5, 0.5, 0.5), RGB::from_f32(0., 0., 0.), to_cp437('.'));
-                },
+                    ctx.set(
+                        x,
+                        y,
+                        RGB::from_f32(0.5, 0.5, 0.5),
+                        RGB::from_f32(0., 0., 0.),
+                        to_cp437('.'),
+                    );
+                }
                 Tile::Stone => {
-                    ctx.set(x, y, RGB::from_f32(0.0, 1.0, 0.0), RGB::from_f32(0., 0., 0.), to_cp437('#'));
+                    ctx.set(
+                        x,
+                        y,
+                        RGB::from_f32(0.0, 1.0, 0.0),
+                        RGB::from_f32(0., 0., 0.),
+                        to_cp437('#'),
+                    );
                 }
             }
         }
@@ -101,32 +121,39 @@ struct Render {
 struct Player {}
 
 fn try_move_player(dx: i32, dy: i32, ecs: &mut World) {
-    use std::cmp::{min, max};
+    use std::cmp::{max, min};
+    let mut map = ecs.fetch_mut::<Map>();
     let mut positions = ecs.write_storage::<Position>();
     let mut players = ecs.write_storage::<Player>();
     for (_p, pos) in (&mut players, &mut positions).join() {
-        pos.x = min(79, max(0, pos.x + dx));
-        pos.y = min(49, max(0, pos.y + dy));
+        let try_x = min(79, max(0, pos.x + dx));
+        let try_y = min(49, max(0, pos.y + dy));
+        let try_pos = map.xy_idx(try_x, try_y);
+        match map.tiles[try_pos] {
+            Tile::Floor => {
+                pos.x = try_x;
+                pos.y = try_y;
+            }
+            Tile::Stone => {
+                map.tiles[try_pos] = Tile::Floor;
+            }
+        }
     }
 }
 
 fn player_input(gs: &mut State, ctx: &mut BTerm) {
     match ctx.key {
-        None => {},
+        None => {}
         Some(key) => match key {
-            VirtualKeyCode::W |
-            VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
+            VirtualKeyCode::W | VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
 
-            VirtualKeyCode::S |
-            VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
+            VirtualKeyCode::S | VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
 
-            VirtualKeyCode::A |
-            VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
+            VirtualKeyCode::A | VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
 
-            VirtualKeyCode::D |
-            VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
+            VirtualKeyCode::D | VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
             _ => {}
-        }
+        },
     }
 }
 
@@ -135,9 +162,7 @@ fn main() -> BError {
         .with_title("Hello Minimal Bracket World")
         .build()?;
 
-    let mut gs: State = State {
-        ecs: World::new(),
-    };
+    let mut gs: State = State { ecs: World::new() };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Render>();
     gs.ecs.register::<Player>();
@@ -146,9 +171,17 @@ fn main() -> BError {
     let (player_x, player_y) = map.player_spawns[0];
     gs.ecs.insert(map);
 
-    gs.ecs.create_entity()
-        .with(Position { x: player_x, y: player_y })
-        .with(Render { glyph: to_cp437('@'), fg: RGB::named(YELLOW), bg: RGB::named(BLACK)})
+    gs.ecs
+        .create_entity()
+        .with(Position {
+            x: player_x,
+            y: player_y,
+        })
+        .with(Render {
+            glyph: to_cp437('@'),
+            fg: RGB::named(YELLOW),
+            bg: RGB::named(BLACK),
+        })
         .with(Player {})
         .build();
     main_loop(context, gs)
