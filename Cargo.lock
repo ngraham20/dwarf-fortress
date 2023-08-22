@@ -1494,6 +1494,7 @@ name = "rust-roguelike"
 version = "0.1.0"
 dependencies = [
  "bracket-lib",
+ "crossbeam-utils 0.8.16",
  "specs",
  "specs-derive",
 ]
