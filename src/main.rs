@@ -29,6 +29,7 @@ struct Map {
     height: usize,
     depth: usize,
     tiles: Vec<Tile>,
+    player_spawns: Vec<(i32, i32)>,
 }
 
 impl Map {
@@ -47,6 +48,8 @@ impl Map {
                 self.tiles[idx] = Tile::Floor;
             }
         }
+        let center = ((room.x1 + room.x2)/2, (room.y1 as i32+room.y2 as i32)/2);
+        self.player_spawns.push(center);
     }
 
     fn simple_80x50() -> Self {
@@ -55,8 +58,9 @@ impl Map {
             height: 50,
             depth: 1,
             tiles: vec![Tile::Stone; 80*50],
+            player_spawns: Vec::new(),
         };
-        let room = Rect { x1: 20, x2: 40, y1: 20, y2: 40};
+        let room = Rect { x1: 30, x2: 50, y1: 15, y2: 35};
         map.apply_room_to_map(&room);
         map
     }
@@ -139,10 +143,11 @@ fn main() -> BError {
     gs.ecs.register::<Player>();
 
     let map = Map::simple_80x50();
+    let (player_x, player_y) = map.player_spawns[0];
     gs.ecs.insert(map);
 
     gs.ecs.create_entity()
-        .with(Position { x: 5, y: 5 })
+        .with(Position { x: player_x, y: player_y })
         .with(Render { glyph: to_cp437('@'), fg: RGB::named(YELLOW), bg: RGB::named(BLACK)})
         .with(Player {})
         .build();
