@@ -1,161 +1,21 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
-use specs_derive::Component;
+use std::cmp::{max, min};
 
-struct State {
-    ecs: World,
-}
-impl GameState for State {
-    fn tick(&mut self, ctx: &mut BTerm) {
-        ctx.cls();
-        Map::draw(&self.ecs, ctx);
-        player_input(self, ctx);
-        let positions = self.ecs.read_storage::<Position>();
-        let renders = self.ecs.read_storage::<Render>();
-        for (pos, render) in (&positions, &renders).join() {
-            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
-        }
-    }
-}
+mod state;
+pub use state::*;
 
-#[derive(PartialEq, Copy, Clone)]
-enum Tile {
-    Floor,
-    Stone,
-}
+mod map;
+pub use map::*;
+pub use map::{Tile, Minable};
 
-struct Map {
-    width: usize,
-    height: usize,
-    depth: usize,
-    tiles: Vec<Tile>,
-    player_spawns: Vec<(i32, i32)>,
-}
+mod player;
+pub use player::*;
 
-impl Map {
-    fn xy_idx(&self, x: i32, y: i32) -> usize {
-        (y as usize * self.width) + x as usize
-    }
+mod components;
+pub use components::*;
+pub use components::{Position, Player};
 
-    fn idx_xy(&self, pos: usize) -> (i32, i32) {
-        ((pos / self.width) as i32, (pos % self.width) as i32)
-    }
-
-    fn apply_room_to_map(&mut self, room: &Rect) {
-        for y in room.y1 + 1..=room.y2 {
-            for x in room.x1 + 1..=room.x2 {
-                let idx = self.xy_idx(x, y);
-                self.tiles[idx] = Tile::Floor;
-            }
-        }
-        let center = (
-            (room.x1 + room.x2) / 2,
-            (room.y1 as i32 + room.y2 as i32) / 2,
-        );
-        self.player_spawns.push(center);
-    }
-
-    fn simple_80x50() -> Self {
-        let mut map = Map {
-            width: 80,
-            height: 50,
-            depth: 1,
-            tiles: vec![Tile::Stone; 80 * 50],
-            player_spawns: Vec::new(),
-        };
-        let room = Rect {
-            x1: 30,
-            x2: 50,
-            y1: 15,
-            y2: 35,
-        };
-        map.apply_room_to_map(&room);
-        map
-    }
-
-    fn draw(ecs: &World, ctx: &mut BTerm) {
-        let map = ecs.fetch::<Map>();
-        for (pos, tile) in map.tiles.iter().enumerate() {
-            let (y, x) = map.idx_xy(pos);
-            match tile {
-                Tile::Floor => {
-                    ctx.set(
-                        x,
-                        y,
-                        RGB::from_f32(0.5, 0.5, 0.5),
-                        RGB::from_f32(0., 0., 0.),
-                        to_cp437('.'),
-                    );
-                }
-                Tile::Stone => {
-                    ctx.set(
-                        x,
-                        y,
-                        RGB::from_f32(0.0, 1.0, 0.0),
-                        RGB::from_f32(0., 0., 0.),
-                        to_cp437('#'),
-                    );
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Component)]
-#[storage(VecStorage)]
-struct Position {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Component)]
-#[storage(VecStorage)]
-struct Render {
-    glyph: FontCharType,
-    fg: RGB,
-    bg: RGB,
-}
-
-#[derive(Component)]
-#[storage(HashMapStorage)]
-struct Player {}
-
-fn try_move_player(dx: i32, dy: i32, ecs: &mut World) {
-    use std::cmp::{max, min};
-    let mut map = ecs.fetch_mut::<Map>();
-    let mut positions = ecs.write_storage::<Position>();
-    let mut players = ecs.write_storage::<Player>();
-    for (_p, pos) in (&mut players, &mut positions).join() {
-        let try_x = min(79, max(0, pos.x + dx));
-        let try_y = min(49, max(0, pos.y + dy));
-        let try_pos = map.xy_idx(try_x, try_y);
-        match map.tiles[try_pos] {
-            Tile::Floor => {
-                pos.x = try_x;
-                pos.y = try_y;
-            }
-            Tile::Stone => {
-                map.tiles[try_pos] = Tile::Floor;
-            }
-        }
-    }
-}
-
-fn player_input(gs: &mut State, ctx: &mut BTerm) {
-    match ctx.key {
-        None => {}
-        Some(key) => match key {
-            VirtualKeyCode::W | VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
-
-            VirtualKeyCode::S | VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
-
-            VirtualKeyCode::A | VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
-
-            VirtualKeyCode::D | VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
-            _ => {}
-        },
-    }
-}
 
 fn main() -> BError {
     let context = BTermBuilder::simple80x50()
