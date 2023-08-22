@@ -71,7 +71,6 @@ impl Map {
     }
 
     fn gen_ore_vein(&self, pos: usize) -> Option<Vec<usize>> {
-        let mut rng = RandomNumberGenerator::new();
         // seed the first ore tile at a random location
         let mut seed: Option<usize> = None;
         let mut vein: Option<Vec<usize>>= None;
@@ -83,8 +82,8 @@ impl Map {
         }
         if let Some(s) = seed {
             let mut generated: Vec<usize> = Vec::new();
-            let mut frontiers: HashSet<usize> = HashSet::new();
-            frontiers.insert(s);
+            let mut frontiers = Vec::new();
+            frontiers.push(s);
             for _i in 0..15 {
                 self.try_grow_ore_vein(&mut generated, &mut frontiers);
             }
@@ -93,8 +92,26 @@ impl Map {
         vein
     }
 
-    fn try_grow_ore_vein(&self, vein: &mut Vec<usize>, frontiers: &mut HashSet<usize>) {
+    fn try_grow_ore_vein(&self, vein: &mut Vec<usize>, frontiers: &mut Vec<usize>) {
         // TODO: primm's algorithm please
+        let mut rng = RandomNumberGenerator::new();
+
+        // get random frontier
+        let next = rng.random_slice_index(&frontiers).unwrap();
+        // move frontier to vein
+        vein.push(frontiers[next]);
+        // add neighbors to frontier
+        // n,s,e,w if not edge and not in vein
+        let (x, y) = self.idx_xy(frontiers[next]);
+        // n
+        if y - 1 > 0 {
+        }
+
+        // s
+        // e
+        // w
+        // pop frontier
+        frontiers.swap_remove(next);
     }
 
     pub fn simple_80x50() -> Self {
@@ -102,7 +119,7 @@ impl Map {
             width: 80,
             height: 50,
             depth: 1,
-            tiles: vec![Tile::Minable(Minable::Stone); 80 * 50],
+            tiles: vec![Tile::Minable(Minable::Iron); 80 * 50],
             player_spawns: Vec::new(),
         };
         let room = Rect {
@@ -112,7 +129,7 @@ impl Map {
             y2: 35,
         };
         map.apply_room_to_map(&room);
-        map.seed_ore_veins();
+        // map.seed_ore_veins();
         map
     }
 
