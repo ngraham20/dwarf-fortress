@@ -1831,6 +1831,7 @@ checksum = "cffaaf9392ef73cd30828797152476aaa2fa37a17856934fa63d4843f34290e9"
 name = "tutorial"
 version = "0.1.0"
 dependencies = [
+ "crossbeam-utils 0.8.16",
  "rltk",
  "specs",
  "specs-derive",
