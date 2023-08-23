@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use rand::seq::SliceRandom;
 
 use bracket_lib::prelude::*;
 use specs::prelude::*;
@@ -61,10 +62,12 @@ impl Map {
         // make 10 veins
         let mut rng = RandomNumberGenerator::new();
         for _i in 0..10 {
+            let ores = vec![Minable::Copper, Minable::Iron];
+            let ore = Tile::Minable(*ores.choose(&mut rand::thread_rng()).unwrap());
             let vein = self.gen_ore_vein(rng.roll_dice(1, (self.height*self.width) as i32) as usize);
             if let Some(v) = vein {
                 for pos in v {
-                    self.tiles[pos] = Tile::Minable(Minable::Copper);
+                    self.tiles[pos] = ore;
                 }
             }
         }
@@ -93,23 +96,31 @@ impl Map {
     }
 
     fn try_grow_ore_vein(&self, vein: &mut Vec<usize>, frontiers: &mut Vec<usize>) {
-        // TODO: primm's algorithm please
         let mut rng = RandomNumberGenerator::new();
 
         // get random frontier
         let next = rng.random_slice_index(&frontiers).unwrap();
         // move frontier to vein
-        vein.push(frontiers[next]);
+        let pos = frontiers[next];
+        vein.push(pos);
         // add neighbors to frontier
         // n,s,e,w if not edge and not in vein
-        let (x, y) = self.idx_xy(frontiers[next]);
         // n
-        if y - 1 > 0 {
+        if pos >= self.width && !frontiers.contains(&(pos-self.width)) {
+            frontiers.push(pos-self.width);
         }
-
         // s
+        if pos + self.width <= self.width*self.height && !frontiers.contains(&(pos+self.width)) {
+            frontiers.push(pos+self.width);
+        }
         // e
+        if pos + 1 <= self.width*self.height && !frontiers.contains(&(pos+1)) {
+            frontiers.push(pos+1);
+        }
         // w
+        if pos > 0 && !frontiers.contains(&(pos-1)) {
+            frontiers.push(pos-1);
+        }
         // pop frontier
         frontiers.swap_remove(next);
     }
@@ -119,7 +130,7 @@ impl Map {
             width: 80,
             height: 50,
             depth: 1,
-            tiles: vec![Tile::Minable(Minable::Iron); 80 * 50],
+            tiles: vec![Tile::Minable(Minable::Stone); 80 * 50],
             player_spawns: Vec::new(),
         };
         let room = Rect {
@@ -129,7 +140,7 @@ impl Map {
             y2: 35,
         };
         map.apply_room_to_map(&room);
-        // map.seed_ore_veins();
+        map.seed_ore_veins();
         map
     }
 

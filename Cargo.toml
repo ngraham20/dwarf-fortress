@@ -10,6 +10,7 @@ bracket-lib = "~0.8"
 specs = "0.19.0"
 specs-derive = "0.4.1"
 crossbeam-utils="0.8.7"
+rand = "0.8.5"
 
 [workspace]
 members = [
