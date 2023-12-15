@@ -7,15 +7,14 @@ pub use state::*;
 
 mod map;
 pub use map::*;
-pub use map::{Tile, Minable};
+pub use map::{Minable, Tile};
 
 mod player;
 pub use player::*;
 
 mod components;
 pub use components::*;
-pub use components::{Position, Player};
-
+pub use components::{Player, Position};
 
 fn main() -> BError {
     let context = BTermBuilder::simple80x50()
